@@ -1,0 +1,47 @@
+{
+  "name": "digital-watchdog-backend",
+  "version": "1.0.0",
+  "description": "Digital Watchdog - Escrow, B2B Milestone Tracking & Digital Agreement Architecture Backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/auth.test.js tests/business.test.js tests/tenant.test.js tests/dealLifecycle.test.js tests/obligationsEvidenceLedger.test.js tests/disputesWebhooksSwagger.test.js tests/e2eMultiTenantWorkflows.test.js tests/whatsapp-bot.test.js tests/telegram-bot.test.js tests/email-integration.test.js tests/nuban-verification.test.js",
+    "test:nuban": "node --test tests/nuban-verification.test.js",
+    "test:whatsapp": "node --test tests/whatsapp-bot.test.js",
+    "test:telegram": "node --test tests/telegram-bot.test.js",
+    "test:email": "node --test tests/email-integration.test.js",
+    "test:e2e": "node --test tests/e2eMultiTenantWorkflows.test.js",
+    "migrate": "node src/migrations/runner.js up",
+    "migrate:reset": "node src/migrations/runner.js reset",
+    "migrate:status": "node src/migrations/runner.js status",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.12.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "keywords": [
+    "digital-watchdog",
+    "escrow",
+    "mysql",
+    "b2b",
+    "lifecycle",
+    "audit-trail",
+    "ledger",
+    "evidence"
+  ],
+  "author": "Digital Watchdog Engineering Team",
+  "license": "ISC"
+}
