@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import app from './src/app.js';
 import { testConnection, closePool } from './src/config/db.js';
+import { runUp } from './src/migrations/runner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,10 +13,18 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 
 async function startServer() {
   try {
-    // Verify MySQL database connectivity before accepting connections
+    // 1. Verify MySQL database connectivity
     await testConnection();
 
-    const server = app.listen(PORT, () => {
+    // 2. Automatically run any pending SQL migrations (essential for Railway / cloud deployments)
+    try {
+      await runUp();
+    } catch (migErr) {
+      console.warn('[Migration Warning]: Non-fatal issue running startup migrations:', migErr.message);
+    }
+
+    // 3. Bind to 0.0.0.0 for Railway / container reverse proxy compatibility
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log('======================================================');
       console.log(`[Digital Watchdog] Server running on port ${PORT}`);
       console.log(`[Digital Watchdog] Environment: ${process.env.NODE_ENV || 'development'}`);

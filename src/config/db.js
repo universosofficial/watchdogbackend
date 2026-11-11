@@ -4,21 +4,69 @@ import dotenv from 'dotenv';
 // Load environment variables from .env
 dotenv.config();
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306', 10),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DW_DB_NAME || (process.env.DB_NAME && !process.env.DB_NAME.includes('world_wide_security') ? process.env.DB_NAME : 'digital_watchdog_db'),
-  waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
-  queueLimit: 0,
-  decimalNumbers: true,
-  multipleStatements: false,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 10000,
-  charset: 'utf8mb4'
-};
+/**
+ * Resolves MySQL connection parameters from Railway URLs, Railway individual variables, or local .env variables
+ */
+export function resolveDatabaseConfig(overrides = {}) {
+  const connectionUrl =
+    process.env.MYSQL_URL ||
+    process.env.DATABASE_URL ||
+    process.env.MYSQL_PUBLIC_URL;
+
+  if (connectionUrl) {
+    try {
+      const parsed = new URL(connectionUrl);
+      const urlDbName = parsed.pathname ? parsed.pathname.replace(/^\//, '') : '';
+      return {
+        host: parsed.hostname || 'localhost',
+        port: parseInt(parsed.port || '3306', 10),
+        user: decodeURIComponent(parsed.username || 'root'),
+        password: decodeURIComponent(parsed.password || ''),
+        database: urlDbName || process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || 'railway',
+        waitForConnections: true,
+        connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
+        queueLimit: 0,
+        decimalNumbers: true,
+        multipleStatements: false,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
+        charset: 'utf8mb4',
+        ...overrides
+      };
+    } catch (err) {
+      console.warn('[DB Config] Failed parsing MYSQL_URL/DATABASE_URL, falling back to individual env vars:', err.message);
+    }
+  }
+
+  const host = process.env.DB_HOST || process.env.MYSQLHOST || process.env.MYSQL_HOST || 'localhost';
+  const port = parseInt(process.env.DB_PORT || process.env.MYSQLPORT || process.env.MYSQL_PORT || '3306', 10);
+  const user = process.env.DB_USER || process.env.MYSQLUSER || process.env.MYSQL_USER || 'root';
+  const password = process.env.DB_PASSWORD ?? process.env.MYSQLPASSWORD ?? process.env.MYSQL_ROOT_PASSWORD ?? '';
+  const database =
+    process.env.DW_DB_NAME ||
+    process.env.MYSQLDATABASE ||
+    process.env.MYSQL_DATABASE ||
+    (process.env.DB_NAME && !process.env.DB_NAME.includes('world_wide_security') ? process.env.DB_NAME : 'digital_watchdog_db');
+
+  return {
+    host,
+    port,
+    user,
+    password,
+    database,
+    waitForConnections: true,
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
+    queueLimit: 0,
+    decimalNumbers: true,
+    multipleStatements: false,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    charset: 'utf8mb4',
+    ...overrides
+  };
+}
+
+const dbConfig = resolveDatabaseConfig();
 
 // Create a connection pool to MySQL
 export const pool = mysql.createPool(dbConfig);
@@ -31,7 +79,7 @@ export const pool = mysql.createPool(dbConfig);
  */
 export async function query(sql, params = []) {
   try {
-    const [rows, fields] = await pool.query(sql, params);
+    const [rows] = await pool.query(sql, params);
     return rows;
   } catch (error) {
     console.error('[DB Query Error]:', {
@@ -61,10 +109,10 @@ export async function testConnection() {
     const connection = await pool.getConnection();
     const [rows] = await connection.query('SELECT 1 AS connected, DATABASE() as `database`, VERSION() as `version`');
     connection.release();
-    console.log(`[DB Connected]: Successfully connected to MySQL (${rows[0].version}) on database: ${rows[0].database}`);
+    console.log(`[DB Connected]: Successfully connected to MySQL (${rows[0].version}) on database: ${rows[0].database} (${dbConfig.host}:${dbConfig.port})`);
     return true;
   } catch (error) {
-    console.error('[DB Connection Error]: Failed to connect to MySQL database:', error.message);
+    console.error(`[DB Connection Error]: Failed to connect to MySQL at ${dbConfig.host}:${dbConfig.port} (db: ${dbConfig.database}, user: ${dbConfig.user}):`, error.message);
     throw error;
   }
 }

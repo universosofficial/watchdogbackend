@@ -3,21 +3,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { resolveDatabaseConfig } from '../config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const SQL_DIR = path.join(__dirname, 'sql');
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306', 10),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'digital_watchdog_db',
-  multipleStatements: true,
-  charset: 'utf8mb4'
-};
+const dbConfig = resolveDatabaseConfig({ multipleStatements: true });
 
 /**
  * Ensures the target database exists on the MySQL server
@@ -36,6 +29,9 @@ async function ensureDatabaseExists() {
       `CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
     );
     console.log(`[Migration Runner] Database verified/created: "${dbConfig.database}"`);
+  } catch (err) {
+    // Managed cloud MySQL instances (e.g. Railway) pre-create the default database and may restrict CREATE DATABASE
+    console.log(`[Migration Runner] Using pre-provisioned database: "${dbConfig.database}"`);
   } finally {
     await connection.end();
   }
@@ -66,7 +62,7 @@ async function getAppliedMigrations(conn) {
 /**
  * Runs pending migrations ('up' action)
  */
-async function runUp() {
+export async function runUp() {
   await ensureDatabaseExists();
 
   const conn = await mysql.createConnection(dbConfig);
@@ -99,17 +95,19 @@ async function runUp() {
       console.log(`[Migration Runner] Applying migration: ${file}...`);
       const startTime = Date.now();
 
-      await conn.beginTransaction();
       try {
         await conn.query(sqlContent);
-        await conn.query('INSERT INTO `schema_migrations` (`migration_name`) VALUES (?)', [file]);
-        await conn.commit();
+        await conn.query('INSERT IGNORE INTO `schema_migrations` (`migration_name`) VALUES (?)', [file]);
         const duration = Date.now() - startTime;
         console.log(`[Migration Runner] Successfully applied ${file} in ${duration}ms.`);
       } catch (err) {
-        await conn.rollback();
-        console.error(`[Migration Runner] Failed executing migration ${file}:`, err.message);
-        throw err;
+        if (err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_TABLE_EXISTS_ERROR' || err.code === 'ER_DUP_KEYNAME') {
+          console.log(`[Migration Runner] Schema changes in ${file} already exist (${err.code}). Marking as applied.`);
+          await conn.query('INSERT IGNORE INTO `schema_migrations` (`migration_name`) VALUES (?)', [file]);
+        } else {
+          console.error(`[Migration Runner] Failed executing migration ${file}:`, err.message);
+          throw err;
+        }
       }
     }
 
@@ -142,7 +140,6 @@ async function runReset() {
     await connection.end();
   }
 
-  // Now run up
   await runUp();
 }
 
@@ -171,30 +168,31 @@ async function showStatus() {
   }
 }
 
-// CLI Command dispatch
-const command = process.argv[2] || 'up';
+// CLI Command dispatch only when executed directly
+const isDirectExecution = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
 
-async function main() {
-  try {
-    switch (command) {
-      case 'up':
-        await runUp();
-        break;
-      case 'reset':
-        await runReset();
-        break;
-      case 'status':
-        await showStatus();
-        break;
-      default:
-        console.error(`Unknown command: "${command}". Available commands: up, reset, status.`);
-        process.exit(1);
+if (isDirectExecution) {
+  const command = process.argv[2] || 'up';
+  (async () => {
+    try {
+      switch (command) {
+        case 'up':
+          await runUp();
+          break;
+        case 'reset':
+          await runReset();
+          break;
+        case 'status':
+          await showStatus();
+          break;
+        default:
+          console.error(`Unknown command: "${command}". Available commands: up, reset, status.`);
+          process.exit(1);
+      }
+      process.exit(0);
+    } catch (err) {
+      console.error('[Migration Runner Error]:', err);
+      process.exit(1);
     }
-    process.exit(0);
-  } catch (err) {
-    console.error('[Migration Runner Error]:', err);
-    process.exit(1);
-  }
+  })();
 }
-
-main();
