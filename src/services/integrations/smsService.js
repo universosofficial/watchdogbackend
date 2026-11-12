@@ -99,7 +99,6 @@ class SmsService {
             'Authorization': `Bearer ${activeApiKey}`
           },
           body: JSON.stringify({
-            to: normalizedPhone,
             phone_number: normalizedPhone,
             sender_id: process.env.ROBASE_SMS_SENDER_ID || 'WATCHDOG',
             message: message
@@ -236,7 +235,6 @@ class SmsService {
             'Authorization': `Bearer ${activeApiKey}`
           },
           body: JSON.stringify({
-            to: normalizedPhone,
             phone_number: normalizedPhone,
             sender_id: process.env.ROBASE_SMS_SENDER_ID || 'WATCHDOG',
             message: message
