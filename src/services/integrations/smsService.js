@@ -101,6 +101,7 @@ class SmsService {
           body: JSON.stringify({
             to: normalizedPhone,
             phone_number: normalizedPhone,
+            sender_id: process.env.ROBASE_SMS_SENDER_ID || 'WATCHDOG',
             message: message
           })
         });
@@ -114,9 +115,10 @@ class SmsService {
         }
 
         if (!response.ok) {
+          const errMsg = respJson?.error?.message || respJson?.message || (typeof respJson?.error === 'string' ? respJson.error : null) || response.statusText;
           console.error(`[Robase SMS Error]: HTTP ${response.status}`, respJson || respText);
           if (process.env.NODE_ENV === 'production') {
-            throw new AppError(`SMS Gateway dispatch failed: ${respJson?.message || respJson?.error || response.statusText}`, 502, 'SMS_DISPATCH_FAILED');
+            throw new AppError(`SMS Gateway dispatch failed: ${errMsg}`, 502, 'SMS_DISPATCH_FAILED');
           }
         } else {
           console.log(`[Robase SMS Delivered]: HTTP ${response.status} to ${normalizedPhone}`, respJson || respText);
@@ -144,7 +146,8 @@ class SmsService {
       success: true,
       message: `OTP sent successfully to ${normalizedPhone}`,
       phone: normalizedPhone,
-      expires_in_seconds: 600
+      expires_in_seconds: 600,
+      rawOtp: rawOtp
     };
   }
 
@@ -235,6 +238,7 @@ class SmsService {
           body: JSON.stringify({
             to: normalizedPhone,
             phone_number: normalizedPhone,
+            sender_id: process.env.ROBASE_SMS_SENDER_ID || 'WATCHDOG',
             message: message
           })
         });

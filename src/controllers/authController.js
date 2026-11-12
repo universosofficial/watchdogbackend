@@ -39,7 +39,8 @@ export async function requestOtp(req, res) {
     return sendSuccess(res, {
       message: `Verification code sent to ${normalizedPhone}`,
       phone: normalizedPhone,
-      expires_in_seconds: otpResult.expires_in_seconds
+      expires_in_seconds: otpResult.expires_in_seconds,
+      ...(Boolean(process.env.DEBUG_OTP === 'true' || process.env.NODE_ENV !== 'production') && { debug_otp: otpResult.rawOtp })
     });
   } catch (error) {
     console.error('[RequestOtp Error]:', error);
