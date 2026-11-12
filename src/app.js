@@ -52,6 +52,8 @@ const allowedOrigins = [
   'https://watchdogfrontend.vercel.app',
   'https://watchdog.univasos.com',
   'https://app.watchdog.univasos.com',
+  'https://univaswatchdog.com',
+  'https://www.univaswatchdog.com',
   'http://localhost:4200',
   'http://localhost:4300',
   'http://localhost:3000',
@@ -64,7 +66,13 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. server-to-server, curl, mobile native webviews)
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.univasos.com')) {
+      if (
+        !origin || 
+        allowedOrigins.includes(origin) || 
+        origin.endsWith('.vercel.app') || 
+        origin.endsWith('univasos.com') ||
+        origin.endsWith('univaswatchdog.com')
+      ) {
         return callback(null, true);
       }
       if (process.env.NODE_ENV === 'production') {
