@@ -60,18 +60,23 @@ export async function registerPhone(req, res) {
     return sendError(res, 'Phone number is required', 'MISSING_PHONE', 400);
   }
 
-  // If OTP is NOT supplied, this is Step 1: dispatch OTP
-  if (!otp) {
-    return requestOtp(req, res);
+  // If full_name is provided, complete registration directly
+  if (full_name) {
+    return verifyPhoneRegistration(req, res);
   }
 
-  // If OTP is supplied, perform verification and provision account
-  return verifyPhoneRegistration(req, res);
+  // If OTP is supplied without full_name, perform verification
+  if (otp) {
+    return verifyPhoneRegistration(req, res);
+  }
+
+  // Otherwise fallback to requesting OTP
+  return requestOtp(req, res);
 }
 
 /**
  * POST /api/v1/auth/verify-phone-registration
- * Confirms SMS OTP, provisions user & default business, and returns JWT
+ * Confirms user details, provisions user & default business, and returns JWT
  */
 export async function verifyPhoneRegistration(req, res) {
   const { 
@@ -86,8 +91,8 @@ export async function verifyPhoneRegistration(req, res) {
     account_type = 'individual' 
   } = req.body;
 
-  if (!phone || !otp) {
-    return sendError(res, 'Phone number and 6-digit OTP code are required', 'MISSING_FIELDS', 400);
+  if (!phone) {
+    return sendError(res, 'Phone number is required', 'MISSING_FIELDS', 400);
   }
 
   const normalizedPhone = SmsService.normalizePhoneNumber(phone);
@@ -96,10 +101,13 @@ export async function verifyPhoneRegistration(req, res) {
   const normalizedPersona = active_persona === 'seller' ? 'seller' : 'buyer';
   const normalizedAccountType = account_type === 'individual' ? 'individual' : 'corporate';
 
-  try {
-    await SmsService.verifyOtp(normalizedPhone, otp, 'registration');
-  } catch (err) {
-    return sendError(res, err.message, err.code || 'INVALID_OTP', err.status || 400);
+  // Only verify OTP if explicitly required by configuration
+  if (otp && process.env.REQUIRE_SMS_OTP === 'true') {
+    try {
+      await SmsService.verifyOtp(normalizedPhone, otp, 'registration');
+    } catch (err) {
+      return sendError(res, err.message, err.code || 'INVALID_OTP', err.status || 400);
+    }
   }
 
   const conn = await getConnection();
