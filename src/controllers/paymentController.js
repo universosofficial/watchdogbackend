@@ -1,3 +1,10 @@
+/**
+ * Watchdog Payment Attestation Controller
+ * NOTE: Watchdog is NOT a payment gateway, escrow service, or funds custodian.
+ * Watchdog does not hold money, process credit cards, or check bank transactions.
+ * This controller records mutual bilateral payment attestations (buyer logs direct transfer
+ * proof; seller confirms receipt) for permanent timeline accountability.
+ */
 import PaymentService from '../services/paymentService.js';
 import { sendSuccess } from '../utils/response.js';
 
